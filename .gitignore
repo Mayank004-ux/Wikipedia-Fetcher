@@ -1,0 +1,10 @@
+# Compiled class files
+*.class
+
+# Eclipse / IDE build output
+bin/
+
+# Temporary files
+*.log
+.DS_Store
+Thumbs.db
