@@ -13,3 +13,4 @@ fi
 
 # Launch GUI
 java -cp "lib/*:src" Main &
+

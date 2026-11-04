@@ -10,7 +10,11 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 
 @SuppressWarnings("serial")
 public class WikiGUI extends JFrame {
@@ -20,20 +24,38 @@ public class WikiGUI extends JFrame {
     private final transient WikiService wikiService;
     private transient WikiArticle currentArticle;
 
-    // UI Components
+    // Theme state
+    private boolean isDarkMode = false;
+
+    // UI Panels
+    private JPanel topPanel;
+    private JLabel appTitle;
     private JTextField searchField;
     private JButton searchButton;
     private JButton saveButton;
-    private JLabel statusLabel;
+    private JButton themeToggleButton;
 
+    private JPanel leftPanel;
+    private JLabel contentsHeader;
     private DefaultListModel<String> headingModel;
     private JList<String> headingList;
+    private JScrollPane leftScroll;
 
     private JTextArea resultArea;
+    private JScrollPane resultScroll;
 
+    private JPanel figurePanel;
+    private JLabel figureHeader;
     private JLabel imageLabel;
+    private JScrollPane imageScroll;
     private JLabel imageTitleLabel;
     private JLabel imageDescLabel;
+
+    private JSplitPane centerSplit;
+    private JSplitPane mainSplit;
+
+    private JPanel bottomBar;
+    private JLabel statusLabel;
 
     @SuppressWarnings("this-escape")
     public WikiGUI() {
@@ -44,7 +66,9 @@ public class WikiGUI extends JFrame {
         } catch (Exception ignored) {
         }
 
+        loadThemePreference();
         initUI();
+        applyTheme();
     }
 
     private void initUI() {
@@ -58,13 +82,11 @@ public class WikiGUI extends JFrame {
         // =====================================================
         // 1. TOP SEARCH & ACTION BAR
         // =====================================================
-        JPanel topPanel = new JPanel(new BorderLayout(10, 10));
+        topPanel = new JPanel(new BorderLayout(10, 10));
         topPanel.setBorder(new EmptyBorder(12, 16, 12, 16));
-        topPanel.setBackground(new Color(245, 247, 250));
 
-        JLabel appTitle = new JLabel("Wikipedia Explorer");
+        appTitle = new JLabel("Wikipedia Explorer");
         appTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        appTitle.setForeground(new Color(25, 42, 86));
 
         JPanel searchControlPanel = new JPanel(new BorderLayout(8, 0));
         searchControlPanel.setOpaque(false);
@@ -77,20 +99,26 @@ public class WikiGUI extends JFrame {
         searchButton = new JButton("Search");
         searchButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
         searchButton.setPreferredSize(new Dimension(100, 36));
-        searchButton.setBackground(new Color(41, 128, 185));
-        searchButton.setForeground(Color.WHITE);
         searchButton.setFocusPainted(false);
 
         saveButton = new JButton("Save Article");
         saveButton.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         saveButton.setPreferredSize(new Dimension(110, 36));
         saveButton.setEnabled(false);
+        saveButton.setFocusPainted(false);
         saveButton.setToolTipText("Save current article and summary to data/articles/");
+
+        themeToggleButton = new JButton(isDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode");
+        themeToggleButton.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        themeToggleButton.setPreferredSize(new Dimension(120, 36));
+        themeToggleButton.setFocusPainted(false);
+        themeToggleButton.setToolTipText("Toggle between Dark Mode and Light Mode");
 
         JPanel buttonBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         buttonBox.setOpaque(false);
         buttonBox.add(searchButton);
         buttonBox.add(saveButton);
+        buttonBox.add(themeToggleButton);
 
         searchControlPanel.add(searchField, BorderLayout.CENTER);
         searchControlPanel.add(buttonBox, BorderLayout.EAST);
@@ -109,17 +137,16 @@ public class WikiGUI extends JFrame {
         headingList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         headingList.setFixedCellHeight(28);
 
-        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel = new JPanel(new BorderLayout());
         leftPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
 
-        JLabel contentsHeader = new JLabel("Table of Contents");
+        contentsHeader = new JLabel("Table of Contents");
         contentsHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
         contentsHeader.setBorder(new EmptyBorder(4, 4, 8, 4));
         leftPanel.add(contentsHeader, BorderLayout.NORTH);
 
-        JScrollPane leftScroll = new JScrollPane(headingList);
+        leftScroll = new JScrollPane(headingList);
         leftScroll.setPreferredSize(new Dimension(260, 0));
-        leftScroll.setBorder(new LineBorder(new Color(220, 224, 230)));
         leftPanel.add(leftScroll, BorderLayout.CENTER);
 
         // =====================================================
@@ -131,36 +158,29 @@ public class WikiGUI extends JFrame {
         resultArea.setWrapStyleWord(true);
         resultArea.setEditable(false);
         resultArea.setMargin(new Insets(16, 20, 16, 20));
-        resultArea.setBackground(Color.WHITE);
         resultArea.setText("Welcome to Wikipedia Explorer!\n\n"
                 + "Type the name of any person, topic, or event in the search box above and press Search.\n"
                 + "The article's figure (photo), summary, and detailed content will be displayed here.");
 
-        JScrollPane resultScroll = new JScrollPane(resultArea);
-        resultScroll.setBorder(new LineBorder(new Color(220, 224, 230)));
+        resultScroll = new JScrollPane(resultArea);
 
         // =====================================================
         // 4. RIGHT PANEL: FIGURE & PROFILE CARD
         // =====================================================
-        JPanel figurePanel = new JPanel(new BorderLayout(8, 8));
+        figurePanel = new JPanel(new BorderLayout(8, 8));
         figurePanel.setPreferredSize(new Dimension(340, 0));
         figurePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        figurePanel.setBackground(new Color(250, 251, 253));
 
-        JLabel figureHeader = new JLabel("Figure / Photo", JLabel.CENTER);
+        figureHeader = new JLabel("Figure / Photo", JLabel.CENTER);
         figureHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        figureHeader.setForeground(new Color(70, 80, 95));
         figurePanel.add(figureHeader, BorderLayout.NORTH);
 
         imageLabel = new JLabel("No figure loaded", JLabel.CENTER);
         imageLabel.setFont(new Font("Segoe UI", Font.ITALIC, 13));
-        imageLabel.setForeground(Color.GRAY);
         imageLabel.setPreferredSize(new Dimension(320, 360));
-        imageLabel.setBorder(new LineBorder(new Color(230, 233, 238), 1));
         imageLabel.setOpaque(true);
-        imageLabel.setBackground(Color.WHITE);
 
-        JScrollPane imageScroll = new JScrollPane(imageLabel);
+        imageScroll = new JScrollPane(imageLabel);
         imageScroll.setBorder(null);
         figurePanel.add(imageScroll, BorderLayout.CENTER);
 
@@ -176,7 +196,6 @@ public class WikiGUI extends JFrame {
         imageDescLabel = new JLabel("", JLabel.CENTER);
         imageDescLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         imageDescLabel.setFont(new Font("Segoe UI", Font.ITALIC, 13));
-        imageDescLabel.setForeground(new Color(90, 100, 115));
 
         imageMetaPanel.add(imageTitleLabel);
         imageMetaPanel.add(Box.createVerticalStrut(4));
@@ -187,7 +206,7 @@ public class WikiGUI extends JFrame {
         // =====================================================
         // 5. SPLIT PANES
         // =====================================================
-        JSplitPane centerSplit = new JSplitPane(
+        centerSplit = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT,
                 resultScroll,
                 figurePanel
@@ -195,7 +214,7 @@ public class WikiGUI extends JFrame {
         centerSplit.setResizeWeight(0.70);
         centerSplit.setDividerLocation(680);
 
-        JSplitPane mainSplit = new JSplitPane(
+        mainSplit = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT,
                 leftPanel,
                 centerSplit
@@ -207,13 +226,11 @@ public class WikiGUI extends JFrame {
         // =====================================================
         // 6. BOTTOM STATUS BAR
         // =====================================================
-        JPanel bottomBar = new JPanel(new BorderLayout());
+        bottomBar = new JPanel(new BorderLayout());
         bottomBar.setBorder(new EmptyBorder(6, 16, 6, 16));
-        bottomBar.setBackground(new Color(245, 247, 250));
 
         statusLabel = new JLabel("Ready");
         statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        statusLabel.setForeground(new Color(100, 110, 125));
 
         bottomBar.add(statusLabel, BorderLayout.WEST);
         add(bottomBar, BorderLayout.SOUTH);
@@ -224,6 +241,7 @@ public class WikiGUI extends JFrame {
         searchButton.addActionListener(e -> performSearch());
         searchField.addActionListener(e -> performSearch());
         saveButton.addActionListener(e -> saveCurrentArticle());
+        themeToggleButton.addActionListener(e -> toggleTheme());
 
         headingList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && currentArticle != null) {
@@ -233,6 +251,154 @@ public class WikiGUI extends JFrame {
 
         getRootPane().setDefaultButton(searchButton);
         setVisible(true);
+    }
+
+    // =====================================================
+    // THEME SWITCHING (DARK / LIGHT MODE)
+    // =====================================================
+
+    private void toggleTheme() {
+        isDarkMode = !isDarkMode;
+        applyTheme();
+        saveThemePreference();
+    }
+
+    private void applyTheme() {
+        Color bgTopBar;
+        Color bgContent;
+        Color bgSidePanels;
+        Color bgCard;
+        Color bgInput;
+        Color textPrimary;
+        Color textSecondary;
+        Color textBody;
+        Color accentColor;
+        Color borderColor;
+        Color listSelectionBg;
+        Color listSelectionFg;
+        Color buttonBg;
+
+        if (isDarkMode) {
+            bgTopBar = new Color(28, 33, 40);
+            bgContent = new Color(22, 27, 34);
+            bgSidePanels = new Color(28, 33, 40);
+            bgCard = new Color(33, 38, 45);
+            bgInput = new Color(33, 38, 45);
+            textPrimary = new Color(240, 246, 252);
+            textSecondary = new Color(139, 148, 158);
+            textBody = new Color(201, 209, 217);
+            accentColor = new Color(46, 120, 210);
+            borderColor = new Color(48, 54, 61);
+            listSelectionBg = new Color(31, 75, 133);
+            listSelectionFg = Color.WHITE;
+            buttonBg = new Color(45, 52, 64);
+            themeToggleButton.setText("☀️ Light Mode");
+        } else {
+            bgTopBar = new Color(245, 247, 250);
+            bgContent = new Color(255, 255, 255);
+            bgSidePanels = new Color(248, 249, 252);
+            bgCard = new Color(255, 255, 255);
+            bgInput = new Color(255, 255, 255);
+            textPrimary = new Color(25, 42, 86);
+            textSecondary = new Color(90, 100, 115);
+            textBody = new Color(33, 37, 41);
+            accentColor = new Color(41, 128, 185);
+            borderColor = new Color(220, 224, 230);
+            listSelectionBg = new Color(218, 234, 250);
+            listSelectionFg = new Color(25, 42, 86);
+            buttonBg = new Color(238, 242, 246);
+            themeToggleButton.setText("🌙 Dark Mode");
+        }
+
+        // Apply colors to all components
+        getContentPane().setBackground(bgSidePanels);
+
+        topPanel.setBackground(bgTopBar);
+        appTitle.setForeground(textPrimary);
+
+        searchField.setBackground(bgInput);
+        searchField.setForeground(textBody);
+        searchField.setCaretColor(textBody);
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(borderColor, 1),
+                new EmptyBorder(4, 10, 4, 10)
+        ));
+
+        searchButton.setBackground(accentColor);
+        searchButton.setForeground(Color.WHITE);
+
+        saveButton.setBackground(buttonBg);
+        saveButton.setForeground(textPrimary);
+        saveButton.setBorder(new LineBorder(borderColor, 1));
+
+        themeToggleButton.setBackground(buttonBg);
+        themeToggleButton.setForeground(textPrimary);
+        themeToggleButton.setBorder(new LineBorder(borderColor, 1));
+
+        leftPanel.setBackground(bgSidePanels);
+        contentsHeader.setForeground(textPrimary);
+
+        headingList.setBackground(bgInput);
+        headingList.setForeground(textBody);
+        headingList.setSelectionBackground(listSelectionBg);
+        headingList.setSelectionForeground(listSelectionFg);
+        leftScroll.getViewport().setBackground(bgInput);
+        leftScroll.setBorder(new LineBorder(borderColor, 1));
+
+        resultArea.setBackground(bgContent);
+        resultArea.setForeground(textBody);
+        resultArea.setCaretColor(textBody);
+        resultScroll.getViewport().setBackground(bgContent);
+        resultScroll.setBorder(new LineBorder(borderColor, 1));
+
+        figurePanel.setBackground(bgSidePanels);
+        figureHeader.setForeground(textSecondary);
+
+        imageLabel.setBackground(bgCard);
+        imageLabel.setForeground(textSecondary);
+        imageLabel.setBorder(new LineBorder(borderColor, 1));
+        imageScroll.getViewport().setBackground(bgCard);
+
+        imageTitleLabel.setForeground(textPrimary);
+        imageDescLabel.setForeground(textSecondary);
+
+        centerSplit.setBackground(bgSidePanels);
+        centerSplit.setBorder(null);
+
+        mainSplit.setBackground(bgSidePanels);
+        mainSplit.setBorder(null);
+
+        bottomBar.setBackground(bgTopBar);
+        statusLabel.setForeground(textSecondary);
+
+        repaint();
+        revalidate();
+    }
+
+    private void loadThemePreference() {
+        File file = new File("data/theme.txt");
+        if (file.exists()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+                String line = reader.readLine();
+                if (line != null && line.trim().equalsIgnoreCase("dark")) {
+                    isDarkMode = true;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void saveThemePreference() {
+        try {
+            File file = new File("data/theme.txt");
+            if (file.getParentFile() != null && !file.getParentFile().exists()) {
+                file.getParentFile().mkdirs();
+            }
+            try (FileWriter writer = new FileWriter(file, StandardCharsets.UTF_8)) {
+                writer.write(isDarkMode ? "dark" : "light");
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     // =====================================================
@@ -249,7 +415,6 @@ public class WikiGUI extends JFrame {
             return;
         }
 
-        // Update UI to searching state
         searchButton.setEnabled(false);
         searchButton.setText("Searching...");
         saveButton.setEnabled(false);
@@ -310,7 +475,6 @@ public class WikiGUI extends JFrame {
         this.currentArticle = article;
         this.saveButton.setEnabled(true);
 
-        // 1. Populate Headings in Table of Contents
         headingModel.clear();
         headingModel.addElement("📋 Summary & Overview");
         if (!article.getFullContent().isEmpty()) {
@@ -321,10 +485,8 @@ public class WikiGUI extends JFrame {
         }
         headingList.setSelectedIndex(0);
 
-        // 2. Display Figure (Image)
         if (image != null) {
             imageLabel.setText("");
-            // Scale preserving aspect ratio
             int maxW = 310;
             int maxH = 370;
             int origW = image.getWidth();
@@ -343,7 +505,6 @@ public class WikiGUI extends JFrame {
         imageTitleLabel.setText(article.getTitle());
         imageDescLabel.setText(article.getDescription());
 
-        // 3. Display Overview by default
         renderOverview();
     }
 

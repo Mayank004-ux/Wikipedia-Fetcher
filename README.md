@@ -11,6 +11,7 @@ A Java desktop application with a rich graphical user interface (Swing) to searc
 - **Overview & Summary**: Displays the title, subtitle/description, and concise introductory summary.
 - **Table of Contents**: Instant browsing of all article sections and sub-headings.
 - **Full Article View**: Read the full plain-text article from beginning to end without ads or markup noise.
+- **Dark & Light Mode Toggle**: One-click instant theme switcher (`🌙 Dark Mode` / `☀️ Light Mode`) with persistent theme saving across restarts.
 - **Save Article**: Download and export articles (title, description, summary, sections) directly into `data/articles/`.
 - **Search History**: Automatically logs searches to `data/history.txt`.
 - **Responsive UI**: Asynchronous background network processing (`SwingWorker`) ensures the interface never freezes during queries.
