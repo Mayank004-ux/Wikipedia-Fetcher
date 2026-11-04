@@ -324,16 +324,21 @@ public class WikiGUI extends JFrame {
                 new EmptyBorder(4, 10, 4, 10)
         ));
 
-        searchButton.setBackground(accentColor);
-        searchButton.setForeground(Color.WHITE);
+        Color paleYellow = new Color(254, 240, 138);
+        Color buttonTextColor = Color.BLACK;
+        Color paleYellowBorder = new Color(225, 205, 110);
 
-        saveButton.setBackground(buttonBg);
-        saveButton.setForeground(textPrimary);
-        saveButton.setBorder(new LineBorder(borderColor, 1));
+        searchButton.setBackground(paleYellow);
+        searchButton.setForeground(buttonTextColor);
+        searchButton.setBorder(new LineBorder(paleYellowBorder, 1));
 
-        themeToggleButton.setBackground(buttonBg);
-        themeToggleButton.setForeground(textPrimary);
-        themeToggleButton.setBorder(new LineBorder(borderColor, 1));
+        saveButton.setBackground(paleYellow);
+        saveButton.setForeground(buttonTextColor);
+        saveButton.setBorder(new LineBorder(paleYellowBorder, 1));
+
+        themeToggleButton.setBackground(paleYellow);
+        themeToggleButton.setForeground(buttonTextColor);
+        themeToggleButton.setBorder(new LineBorder(paleYellowBorder, 1));
 
         leftPanel.setBackground(bgSidePanels);
         contentsHeader.setForeground(textPrimary);
